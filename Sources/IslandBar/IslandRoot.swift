@@ -10,14 +10,13 @@ struct IslandRoot: View {
             if model.expanded {
                 PageRouter(model: model)
                 PageDots(model: model)
-                    .padding(.top, 8)
             } else {
                 collapsed
             }
         }
         .padding(.horizontal, model.expanded ? 18 : 8)
         .padding(.top, model.expanded ? 10 : 0)
-        .padding(.bottom, model.expanded ? 10 : 0)
+        .padding(.bottom, model.expanded ? 4 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(chrome)
         .clipShape(shape)
@@ -88,14 +87,15 @@ struct PageDots: View {
     @ObservedObject var model: IslandModel
 
     var body: some View {
-        HStack(spacing: 8) {
-            HStack(spacing: 0) {
+        HStack(alignment: .bottom, spacing: 8) {
+            HStack(alignment: .bottom, spacing: 0) {
                 ForEach(IslandPage.allCases) { page in
                     Button { model.page = page } label: {
                         Capsule()
                             .fill(page == model.page ? Color.white : Color.white.opacity(0.28))
                             .frame(width: page == model.page ? 16 : 5, height: 5)
-                            .frame(width: 22, height: 22)
+                            .padding(.top, 17)
+                            .frame(width: 22, alignment: .bottom)
                             .contentShape(Rectangle())
                     }
                     .buttonStyle(.plain)
@@ -106,7 +106,8 @@ struct PageDots: View {
                 Image(systemName: model.isPagePinned ? "pin.fill" : "pin")
                     .font(.system(size: 11, weight: .semibold))
                     .foregroundStyle(model.isPagePinned ? Color.white : Color.white.opacity(0.45))
-                    .frame(width: 22, height: 22)
+                    .padding(.top, 6)
+                    .frame(width: 22, height: 22, alignment: .bottom)
                     .contentShape(Rectangle())
             }
             .buttonStyle(.plain)
