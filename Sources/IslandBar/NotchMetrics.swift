@@ -1,23 +1,24 @@
 import AppKit
+import IslandCore
 
 enum NotchMetrics {
     static func screen() -> NSScreen {
         NSScreen.screens.first { $0.safeAreaInsets.top > 0 } ?? NSScreen.main ?? NSScreen.screens[0]
     }
 
-    static func rect(expanded: Bool, active: Bool) -> NSRect {
+    static func rect(expanded: Bool, titled: Bool = false) -> NSRect {
         let screen = screen()
         let top = screen.frame.maxY
         let notchBottom = notchBottom(on: screen)
-        let lip: CGFloat = active ? 12 : -6
+        let lip: CGFloat = expanded ? 0 : (titled ? 0 : -6)
         let height: CGFloat = expanded ? 340 : (top - notchBottom) + lip
-        let width: CGFloat = expanded ? 520 : (active ? 220 : notchWidth(on: screen))
+        let width: CGFloat = expanded ? 520 : notchWidth(on: screen)
         let x = screen.frame.midX - width / 2
         return NSRect(x: x, y: top - height, width: width, height: height)
     }
 
-    static func hitRect(expanded: Bool, active: Bool) -> NSRect {
-        var hit = rect(expanded: expanded, active: active).union(notchStrip())
+    static func hitRect(expanded: Bool, titled: Bool = false) -> NSRect {
+        var hit = rect(expanded: expanded, titled: titled).union(notchStrip())
         let top = screen().frame.maxY + 2
         if hit.maxY < top { hit.size.height += top - hit.maxY }
         return hit
@@ -77,12 +78,6 @@ struct MusicState: Equatable {
     var elapsed: Double = 0
     var duration: Double = 0
     var art: Data?
-}
-
-struct WeatherHour: Equatable, Identifiable {
-    var label: String
-    var temp: String
-    var id: String { label }
 }
 
 struct WeatherState: Equatable {

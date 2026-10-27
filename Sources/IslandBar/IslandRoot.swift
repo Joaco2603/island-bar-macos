@@ -8,16 +8,6 @@ struct IslandRoot: View {
     var body: some View {
         VStack(spacing: 0) {
             if model.expanded {
-                HStack {
-                    Spacer()
-                    Button { model.collapse() } label: {
-                        Image(systemName: "chevron.up")
-                            .font(.system(size: 12, weight: .bold))
-                            .foregroundStyle(.white.opacity(0.7))
-                            .frame(width: 28, height: 20)
-                    }
-                    .buttonStyle(.plain)
-                }
                 PageRouter(model: model)
                 PageDots(model: model)
                     .padding(.top, 8)
@@ -26,7 +16,7 @@ struct IslandRoot: View {
             }
         }
         .padding(.horizontal, model.expanded ? 18 : 8)
-        .padding(.top, model.expanded ? 4 : 0)
+        .padding(.top, model.expanded ? 10 : 0)
         .padding(.bottom, model.expanded ? 10 : 0)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .background(chrome)
@@ -59,16 +49,19 @@ struct IslandRoot: View {
                 Color.clear.frame(height: 4)
             } else {
                 HStack(spacing: 8) {
-                    if model.music.playing {
+                    if model.music.playing, !model.collapsedTitle.contains(":") {
                         Circle().fill(model.tint).frame(width: 8, height: 8)
                     }
-                    if model.advisor != nil || model.agents.contains(where: { $0.phase == .working }) {
-                        ForEach(model.agents) { live in
-                            PhaseDot(phase: live.phase, status: live.status)
-                        }
+                    if let advisor = model.advisor {
+                        AgentIcon(kind: advisor.kind, size: 16)
+                        PhaseDot(phase: advisor.phase, status: advisor.status)
+                    } else if let live = model.agents.first(where: { $0.phase == .working }) {
+                        AgentIcon(kind: live.kind, size: 16)
+                        PhaseDot(phase: live.phase, status: live.status)
                     }
                     Text(model.collapsedTitle)
-                        .font(.system(size: 12, weight: .semibold))
+                        .font(.system(size: 12, weight: .semibold, design: .rounded))
+                        .monospacedDigit()
                         .lineLimit(1)
                     Spacer(minLength: 0)
                 }
@@ -95,13 +88,29 @@ struct PageDots: View {
     @ObservedObject var model: IslandModel
 
     var body: some View {
-        HStack(spacing: 6) {
-            ForEach(IslandPage.allCases) { page in
-                Capsule()
-                    .fill(page == model.page ? Color.white : Color.white.opacity(0.28))
-                    .frame(width: page == model.page ? 16 : 5, height: 5)
-                    .onTapGesture { model.page = page }
+        HStack(spacing: 8) {
+            HStack(spacing: 0) {
+                ForEach(IslandPage.allCases) { page in
+                    Button { model.page = page } label: {
+                        Capsule()
+                            .fill(page == model.page ? Color.white : Color.white.opacity(0.28))
+                            .frame(width: page == model.page ? 16 : 5, height: 5)
+                            .frame(width: 22, height: 22)
+                            .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(page.title)
+                }
             }
+            Button { model.togglePagePin() } label: {
+                Image(systemName: model.isPagePinned ? "pin.fill" : "pin")
+                    .font(.system(size: 11, weight: .semibold))
+                    .foregroundStyle(model.isPagePinned ? Color.white : Color.white.opacity(0.45))
+                    .frame(width: 22, height: 22)
+                    .contentShape(Rectangle())
+            }
+            .buttonStyle(.plain)
+            .accessibilityLabel(model.isPagePinned ? "Unpin page" : "Pin page")
         }
     }
 }
