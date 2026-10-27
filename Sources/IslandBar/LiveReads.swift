@@ -66,13 +66,8 @@ enum WeatherFetch {
         let humidity = (current["humidity"] as? String).map { $0 + "%" } ?? ""
         let wind = (current["windspeedMiles"] as? String).map { $0 + " mph" } ?? ""
         let visibility = (current["visibilityMiles"] as? String).map { $0 + " mi" } ?? ""
-        var hours = ((day?["hourly"] as? [[String: Any]]) ?? []).prefix(6).compactMap { slot -> WeatherHour? in
-            guard let value = slot["tempF"] as? String ?? slot["tempC"] as? String else { return nil }
-            let hour = (Int(slot["time"] as? String ?? "") ?? 0) / 100
-            let label = hour == 0 ? "12a" : hour < 12 ? "\(hour)a" : hour == 12 ? "12p" : "\(hour - 12)p"
-            return WeatherHour(label: label, temp: value + "°")
-        }
-        if !hours.isEmpty { hours[0] = WeatherHour(label: "Now", temp: hours[0].temp) }
+        let slots = (day?["hourly"] as? [[String: Any]]) ?? []
+        let hours = WeatherHours.upcoming(slots, nowHour: Calendar.current.component(.hour, from: Date()))
         return WeatherState(
             place: place, summary: summary, temp: temp, high: high, low: low,
             feels: feels, humidity: humidity, wind: wind, visibility: visibility, hours: hours

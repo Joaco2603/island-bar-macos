@@ -25,7 +25,7 @@ struct WeatherPage: View {
                     ForEach(weather.hours) { hour in
                         VStack(spacing: 6) {
                             Text(hour.label).font(.system(size: 11, weight: .semibold))
-                            Image(systemName: symbol(weather.summary)).font(.system(size: 14))
+                            Image(systemName: symbol(hour.summary.isEmpty ? weather.summary : hour.summary)).font(.system(size: 14))
                             Text(hour.temp).font(.system(size: 12, weight: .medium, design: .rounded))
                         }
                         .frame(maxWidth: .infinity)

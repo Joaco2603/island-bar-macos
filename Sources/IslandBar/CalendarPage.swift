@@ -1,4 +1,5 @@
 import AppKit
+import IslandCore
 import SwiftUI
 
 struct CalendarPage: View {
@@ -13,6 +14,11 @@ struct CalendarPage: View {
                     .foregroundStyle(Color(red: 1, green: 0.38, blue: 0.32))
                 Text(dayNumber)
                     .font(.system(size: 52, weight: .light, design: .rounded))
+                if let mail = model.mailUnread, mail > 0 {
+                    Text("\(mail) unread")
+                        .font(.system(size: 13, weight: .semibold))
+                        .foregroundStyle(.white.opacity(0.7))
+                }
                 if !calendar.message.isEmpty {
                     Text(calendar.message).font(.system(size: 12)).foregroundStyle(.white.opacity(0.5))
                 }
@@ -24,6 +30,7 @@ struct CalendarPage: View {
             .frame(width: 180, alignment: .leading)
             month
         }
+        .foregroundStyle(.white)
         .onAppear { model.calendar.load() }
     }
 
@@ -86,14 +93,15 @@ struct CalendarPage: View {
         }
         .padding(8)
         .background(.white.opacity(0.06), in: RoundedRectangle(cornerRadius: 10, style: .continuous))
+        .overlay(alignment: .leading) {
+            RoundedRectangle(cornerRadius: 2)
+                .fill(line.join == nil ? Color.green : Color.blue)
+                .frame(width: 3)
+                .padding(.vertical, 8)
+        }
     }
 
     private func monthCells() -> [Int?] {
-        let calendar = Calendar.current
-        let now = Date()
-        guard let range = calendar.range(of: .day, in: .month, for: now),
-              let first = calendar.date(from: calendar.dateComponents([.year, .month], from: now)) else { return [] }
-        let pad = calendar.component(.weekday, from: first) - 1
-        return Array(repeating: nil, count: pad) + range.map { Optional($0) }
+        MonthGrid.cells(on: Date())
     }
 }
