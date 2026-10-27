@@ -10,6 +10,24 @@ public enum AgentKind: String, CaseIterable, Equatable {
         case .claude: "Claude"
         }
     }
+
+    public var appBundlePath: String {
+        switch self {
+        case .cursor: "/Applications/Cursor.app"
+        case .claude: "/Applications/Claude.app"
+        case .codex: "/Applications/CodexBar.app"
+        }
+    }
+}
+
+public struct AgentPlan: Equatable {
+    public var kind: AgentKind
+    public var plan: String
+    public var caption: String
+
+    public static func unknown(_ kind: AgentKind) -> AgentPlan {
+        AgentPlan(kind: kind, plan: "", caption: "—")
+    }
 }
 
 public enum AgentPhase: String, Equatable {
