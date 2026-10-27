@@ -35,8 +35,12 @@ struct MusicPage: View {
                     .frame(height: 3)
                     .frame(maxHeight: .infinity)
                     .contentShape(Rectangle())
-                    .gesture(DragGesture(minimumDistance: 0).onEnded { value in
-                        guard model.music.duration > 0 else { return }
+                    .gesture(DragGesture(minimumDistance: 0).onChanged { value in
+                        guard model.music.duration > 0, geo.size.width > 0 else { return }
+                        let fraction = min(1, max(0, value.location.x / geo.size.width))
+                        model.music.elapsed = model.music.duration * fraction
+                    }.onEnded { value in
+                        guard model.music.duration > 0, geo.size.width > 0 else { return }
                         let fraction = min(1, max(0, value.location.x / geo.size.width))
                         model.seek(model.music.duration * fraction)
                     })
@@ -134,13 +138,25 @@ private struct Wave: View {
     var tint: Color
 
     var body: some View {
-        HStack(alignment: .bottom, spacing: 3) {
-            ForEach(0..<5, id: \.self) { index in
-                Capsule()
-                    .fill(index == 4 ? Color.white.opacity(0.25) : tint)
-                    .frame(width: 3, height: on ? CGFloat(8 + (index % 3) * 6) : 6)
+        TimelineView(.animation(minimumInterval: 0.18, paused: !on)) { context in
+            let step = Int(context.date.timeIntervalSinceReferenceDate / 0.18)
+            HStack(alignment: .bottom, spacing: 3) {
+                ForEach(0..<5, id: \.self) { index in
+                    Capsule()
+                        .fill(barColor(index))
+                        .frame(width: 3, height: barHeight(step: step, index: index))
+                }
             }
+            .frame(height: 22, alignment: .bottom)
         }
-        .frame(height: 22, alignment: .bottom)
+    }
+
+    private func barHeight(step: Int, index: Int) -> CGFloat {
+        guard on else { return 6 }
+        return CGFloat(6 + ((step + index * 2) % 5) * 3)
+    }
+
+    private func barColor(_ index: Int) -> Color {
+        index == 4 ? Color.white.opacity(0.25) : tint
     }
 }

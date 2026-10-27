@@ -39,9 +39,10 @@ final class TimerBox: ObservableObject {
 
     func preset(_ minutes: Int) {
         mode = .countdown
-        running = false
         left = TimeInterval(minutes * 60)
         elapsed = 0
+        end = Date().addingTimeInterval(left)
+        running = true
     }
 
     func toggle() {
