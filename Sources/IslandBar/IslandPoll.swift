@@ -4,6 +4,8 @@ import IslandCore
 
 extension IslandModel {
     func tick() {
+        let wasActive = hasActivity
+        let wasFilled = fillsNotch
         ticks += 1
         timerBox.tick()
         if music.playing {
@@ -19,13 +21,21 @@ extension IslandModel {
         noteBattery(system.battery)
         pollClipboard()
         if ticks % 2 == 1 { refreshAgents() }
-        if ticks % 4 == 1 { refreshMusic() }
+        if ticks % 30 == 1 { refreshPlans() }
+        refreshMusic()
         if ticks % 30 == 1 { refreshWeather() }
         if ticks % 5 == 1 { refreshVolume() }
         if ticks == 2 { refreshDevices(announce: false) }
         if ticks % 45 == 0 { refreshDevices(announce: true) }
         if ticks % 20 == 1 { refreshMail() }
-        if ticks % 20 == 1 { calendar.refresh { [weak self] title in self?.push(title) } }
+        if ticks % 20 == 1 {
+            calendar.refresh { [weak self] title in
+                self?.push(title)
+                self?.present(.calendar, autoClose: true)
+                NSSound.beep()
+            }
+        }
+        if wasActive != hasActivity || wasFilled != fillsNotch { layout() }
     }
 
     func refreshVolume() {
@@ -67,13 +77,9 @@ extension IslandModel {
     func musicCommand(_ command: String) {
         let code: UInt32 = command == "next" ? 4 : command == "previous" ? 5 : 2
         SystemNowPlaying.send(code)
+        if command == "playpause" { music.playing.toggle() }
         let source = music.source
-        Task.detached {
-            MusicRead.control(command, source: source)
-            try? await Task.sleep(nanoseconds: 250_000_000)
-            let next = await SystemNowPlaying.read() ?? MusicRead.current()
-            await MainActor.run { self.music = next }
-        }
+        Task.detached { MusicRead.control(command, source: source) }
     }
 
     func refreshDevices(announce: Bool) {
@@ -98,25 +104,17 @@ extension IslandModel {
         }
     }
 
-    private func noteBattery(_ percent: Int) {
-        if percent < 20 && !batteryAlerted {
-            batteryAlerted = true
-            push("Battery \(percent)%")
-            present(.system)
+    func refreshPlans() {
+        guard !planBusy else { return }
+        planBusy = true
+        let home = FileManager.default.homeDirectoryForCurrentUser
+        Task.detached {
+            let plans = SubClock.plans(home: home)
+            await MainActor.run {
+                self.agentPlans = plans
+                self.planBusy = false
+            }
         }
-        if percent > 30 { batteryAlerted = false }
-    }
-
-    private func pollClipboard() {
-        let board = NSPasteboard.general
-        guard board.changeCount != lastClipboard else { return }
-        let first = lastClipboard == -1
-        lastClipboard = board.changeCount
-        guard !first, let text = board.string(forType: .string), !text.isEmpty else { return }
-        let clip = String(text.prefix(180))
-        clips.removeAll { $0 == clip }
-        clips.insert(clip, at: 0)
-        if clips.count > 8 { clips.removeLast() }
     }
 
     private func refreshAgents() {
@@ -140,38 +138,42 @@ extension IslandModel {
             advised[live.kind] = live.stamp
             advisor = live
             push("\(live.kind.title) finished · \(live.project)")
-            present(.agents)
+            present(.agents, autoClose: true)
             popped = true
         }
         if !popped && before != hasActivity { layout() }
     }
 
     private func refreshMusic() {
+        if let live = NowPlayingFeed.current() {
+            let wasPlaying = music.playing
+            if live.title.isEmpty {
+                if music.playing {
+                    music.playing = false
+                    layout()
+                }
+            } else if music.title != live.title || music.artist != live.artist || music.art == nil {
+                music = live
+                if wasPlaying != live.playing { layout() }
+            } else {
+                music.playing = live.playing
+                music.elapsed = live.elapsed
+                music.duration = live.duration
+                music.source = live.source
+                if wasPlaying != live.playing { layout() }
+            }
+            return
+        }
         guard !musicBusy else { return }
         musicBusy = true
         Task.detached {
-            let next = await SystemNowPlaying.read() ?? MusicRead.current()
+            let scraped = MusicRead.current()
             await MainActor.run {
-                let wasPlaying = self.music.playing
-                self.music = next
+                if !scraped.title.isEmpty, self.music.title.isEmpty {
+                    self.music = scraped
+                }
                 self.musicBusy = false
-                if wasPlaying != next.playing { self.layout() }
             }
-        }
-    }
-
-    private func refreshWeather() {
-        Task {
-            weather = await WeatherFetch.load()
-        }
-    }
-
-    private func refreshMail() {
-        Task.detached {
-            let raw = Shell.run("/usr/bin/osascript", ["-e", MailRead.script])
-                .trimmingCharacters(in: .whitespacesAndNewlines)
-            let count = Int(raw)
-            await MainActor.run { self.mailUnread = count }
         }
     }
 }

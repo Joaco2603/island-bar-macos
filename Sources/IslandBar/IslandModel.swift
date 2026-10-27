@@ -1,12 +1,15 @@
+import AppKit
 import SwiftUI
 import IslandCore
 
 final class IslandModel: ObservableObject {
     @Published var expanded = false
     @Published var pinned = false
+    @Published var pinnedPage: IslandPage?
     @Published var page: IslandPage = .agents
     @Published var look: IslandLook
     @Published var agents: [AgentLive] = AgentKind.allCases.map(AgentLive.idle)
+    @Published var agentPlans: [AgentPlan] = AgentKind.allCases.map { AgentPlan.unknown($0) }
     @Published var advisor: AgentLive?
     @Published var music = MusicState()
     @Published var weather = WeatherState()
@@ -30,6 +33,7 @@ final class IslandModel: ObservableObject {
     var collapseTask: Task<Void, Never>?
     var ticker: Timer?
     var agentBusy = false
+    var planBusy = false
     var musicBusy = false
     var lastClipboard = -1
     var batteryAlerted = false
@@ -42,7 +46,8 @@ final class IslandModel: ObservableObject {
         look = IslandLook(rawValue: raw) ?? .glass
         timerBox.onDone = { [weak self] in
             self?.push("Timer finished")
-            self?.present(.timer)
+            NSSound.beep()
+            self?.present(.timer, autoClose: true)
         }
         if ProcessInfo.processInfo.environment["ISLAND_EXPAND"] == "1" {
             expanded = true
@@ -51,25 +56,42 @@ final class IslandModel: ObservableObject {
         if let name = ProcessInfo.processInfo.environment["ISLAND_PAGE"], let picked = IslandPage(rawValue: name) {
             page = picked
         }
+        if let raw = UserDefaults.standard.string(forKey: "island.pinnedPage"),
+           let saved = IslandPage(rawValue: raw) {
+            pinnedPage = saved
+            page = saved
+        }
     }
 
     func start() {
+        calendar.load()
         ticker = Timer.scheduledTimer(withTimeInterval: 1, repeats: true) { [weak self] _ in
             Task { @MainActor in self?.tick() }
         }
+        refreshPlans()
+        NowPlayingFeed.start()
         tick()
     }
 
     var collapsedTitle: String {
         if let notice { return notice }
-        if let advisor { return "\(advisor.kind.title) finished" }
-        if let live = agents.first(where: { $0.phase == .working }) { return "\(live.kind.title) working" }
-        if music.playing, !music.title.isEmpty { return music.title }
+        if advisor != nil { return "finished" }
+        if let live = agents.first(where: { $0.phase == .working }) { return "\(live.project) · working" }
+        if timerBox.running {
+            let value = timerBox.mode == .stopwatch ? timerBox.elapsed : timerBox.left
+            return ClockText.mmss(value)
+        }
+        if system.battery < 20, !system.charging { return "Battery \(system.battery)%" }
+        if !music.title.isEmpty { return music.title }
         return ""
     }
 
+    var fillsNotch: Bool { !collapsedTitle.isEmpty }
+
     var hasActivity: Bool {
-        notice != nil || advisor != nil || music.playing || agents.contains { $0.phase == .working }
+        notice != nil || advisor != nil || timerBox.running
+            || (system.battery < 20 && !system.charging)
+            || agents.contains { $0.phase == .working }
     }
 
     var tint: Color {
@@ -87,6 +109,7 @@ final class IslandModel: ObservableObject {
         hover = inside
         collapseTask?.cancel()
         if inside {
+            if !expanded { openPinnedPageIfNeeded() }
             expanded = true
             layout()
             return
@@ -140,10 +163,20 @@ final class IslandModel: ObservableObject {
         }
     }
 
-    func present(_ next: IslandPage) {
+    func present(_ next: IslandPage, autoClose: Bool = false) {
         page = next
         expanded = true
         layout()
+        guard autoClose else { return }
+        collapseTask?.cancel()
+        collapseTask = Task { @MainActor in
+            try? await Task.sleep(nanoseconds: 2_200_000_000)
+            guard !self.hover, !self.pinned else { return }
+            self.expanded = false
+            self.advisor = nil
+            self.notice = nil
+            self.layout()
+        }
     }
 
     func push(_ line: String) {

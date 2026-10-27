@@ -8,6 +8,10 @@ final class AppDriver: NSObject, NSApplicationDelegate {
     var host: PanelHost?
 
     static func main() {
+        if CommandLine.arguments.contains("--probe") {
+            MediaRemoteFetch.probe()
+            return
+        }
         if CommandLine.arguments.contains("--check") {
             Check.run()
             return
@@ -43,9 +47,15 @@ enum Check {
         }
         fflush(stdout)
         _ = NSApplication.shared
-        let rect = NotchMetrics.rect(expanded: false, active: false)
+        let rect = NotchMetrics.rect(expanded: false)
         let inset = NotchMetrics.screen().safeAreaInsets.top
         print(String(format: "frame %.0f %.0f %.0f %.0f inset %.0f", rect.origin.x, rect.origin.y, rect.width, rect.height, inset))
+        if let now = SystemNowPlaying.readSync() {
+            print("nowPlaying \(now.source) | \(now.title) | \(now.artist) | playing=\(now.playing)")
+        } else {
+            let scraped = MusicRead.current()
+            print("nowPlaying nil; applescript \(scraped.source) | \(scraped.title)")
+        }
     }
 
     @MainActor
@@ -55,7 +65,7 @@ enum Check {
         model.expanded = true
         model.pinned = true
         model.agents = SessionScan.snapshot(home: FileManager.default.homeDirectoryForCurrentUser)
-        let rect = NotchMetrics.rect(expanded: true, active: false)
+        let rect = NotchMetrics.rect(expanded: true)
         let renderer = ImageRenderer(content: IslandRoot(model: model).frame(width: rect.width, height: rect.height))
         renderer.scale = 2
         let url = URL(fileURLWithPath: "/tmp/island-shot.png")
