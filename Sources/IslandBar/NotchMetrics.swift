@@ -52,6 +52,13 @@ enum IslandPage: String, CaseIterable, Identifiable {
 
     var id: String { rawValue }
 
+    var topGap: CGFloat {
+        switch self {
+        case .timer, .calendar, .weather, .system: 28
+        default: 64
+        }
+    }
+
     var title: String {
         switch self {
         case .agents: "Agents"

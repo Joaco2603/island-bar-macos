@@ -65,7 +65,8 @@ extension IslandModel {
             let start = Date()
             guard let url = URL(string: "https://cp.cloudflare.com/generate_204") else { return }
             _ = try? await URLSession.shared.data(from: url)
-            latency = "\(Int(Date().timeIntervalSince(start) * 1000)) ms"
+            let text = "\(Int(Date().timeIntervalSince(start) * 1000)) ms"
+            await MainActor.run { self.latency = text }
         }
     }
 

@@ -25,7 +25,11 @@ extension IslandModel {
     }
 
     func refreshWeather() {
-        Task { weather = await WeatherFetch.load() }
+        Task {
+            let next = await WeatherFetch.load()
+            // @Published off the main thread deadlocks: SwiftUI waits for main while holding the publisher lock.
+            await MainActor.run { self.weather = next }
+        }
     }
 
     func refreshMail() {

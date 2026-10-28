@@ -4,7 +4,7 @@ struct SystemPage: View {
     @ObservedObject var model: IslandModel
 
     var body: some View {
-        VStack(alignment: .leading, spacing: 14) {
+        VStack(alignment: .leading, spacing: 10) {
             HStack(alignment: .firstTextBaseline) {
                 stat("CPU", percent(model.system.cpu))
                 Spacer()
@@ -46,7 +46,7 @@ struct SystemPage: View {
     private func stat(_ name: String, _ value: String) -> some View {
         VStack(alignment: .leading, spacing: 2) {
             Text(name).font(.system(size: 12)).foregroundStyle(.white.opacity(0.45))
-            Text(value).font(.system(size: 28, weight: .medium, design: .rounded))
+            Text(value).font(.system(size: 24, weight: .medium, design: .rounded))
         }
     }
 
